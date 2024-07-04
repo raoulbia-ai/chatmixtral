@@ -1,0 +1,47 @@
+.App {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.chat-window {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.user-message {
+  text-align: right;
+  margin: 10px;
+  padding: 10px;
+  background-color: #d1e7dd;
+  border-radius: 5px;
+}
+
+.assistant-message {
+  text-align: left;
+  margin: 10px;
+  padding: 10px;
+  background-color: #f8d7da;
+  border-radius: 5px;
+}
+
+.message-input {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #ccc;
+}
+
+.message-input input {
+  flex: 1;
+  padding: 10px;
+  font-size: 16px;
+}
+
+.message-input button {
+  padding: 10px;
+  font-size: 16px;
+  margin-left: 10px;
+}
