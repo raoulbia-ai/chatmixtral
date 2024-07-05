@@ -1,5 +1,4 @@
 import os
-# import requests
 from flask import Flask, request, jsonify, abort
 from flask_cors import CORS
 from flask_caching import Cache
@@ -7,7 +6,6 @@ from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 from dotenv import load_dotenv
 import logging
-from flask import Flask, request, jsonify, abort
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -47,7 +45,7 @@ def hello():
     return jsonify({'message': 'Hello from Flask!'})
     
 @app.route('/api/chat', methods=['POST'])
-@cache.cached(timeout=60)
+# @cache.cached(timeout=60)
 def chat():
     user_message = request.json.get('message')
     if not user_message:
@@ -71,8 +69,6 @@ def chat():
             f"Failed to get response from Mixtral API: {str(e)}") from e
 
     return jsonify({'response': mixtral_response})
-
-# The rest of your Flask app setup remains unchanged
 
 
 if __name__ == '__main__':
