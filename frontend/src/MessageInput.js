@@ -1,27 +1,28 @@
-import React, { useState } from "react";
-import "./MessageInput.css";
+import React, { useState } from 'react';
+import './MessageInput.css';
 
-function MessageInput({ sendMessage }) {
-  const [text, setText] = useState("");
+const MessageInput = ({ sendMessage }) => {
+  const [message, setMessage] = useState('');
 
-  const handleSend = () => {
-    if (text.trim()) {
-      sendMessage(text);
-      setText("");
+  const handleSendMessage = () => {
+    if (message.trim()) {
+      console.log("Message input:", message); // Debugging log
+      sendMessage(message);
+      setMessage('');
     }
   };
 
   return (
     <div className="message-input">
-      <input
-        type="text"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyPress={(e) => e.key === "Enter" && handleSend()}
+      <input 
+        type="text" 
+        value={message} 
+        onChange={(e) => setMessage(e.target.value)} 
+        placeholder="Type your message here..." 
       />
-      <button onClick={handleSend}>Send</button>
+      <button onClick={handleSendMessage}>Send</button>
     </div>
   );
-}
+};
 
 export default MessageInput;
