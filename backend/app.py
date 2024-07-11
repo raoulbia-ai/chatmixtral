@@ -13,7 +13,7 @@ import requests
 import pickle
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -157,15 +157,36 @@ def search():
         )
 
         search_results_text = "\n".join([metadata['name'] for metadata in search_results['metadatas'][0]])
+        logging.info(f"Search results text datatype: {type(search_results_text)}")
 
         # Ensure the last message is from the user or a tool
-        user_query = f'"You are a powerful assistant that refines search results {search_results_text} based on this query: {user_query}"'
-        messages = [
-            ChatMessage(role="user", content=user_query),
-            # ChatMessage(role="system", content="You are a powerful assistant that refines search results."),
-            
-            # ChatMessage(role="assistant", content=search_results_text)
-        ]
+        user_query = f"{user_query}"
+        mistral_query = f"""Summarize the available datasets related to {user_request} 
+                            on the data.gov.ie website from the provided list. 
+                            If the list is empty or no relevant datasets are found, 
+                            indicate that no datasets were found.
+
+                            Example Datasets:
+                            
+                            18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020
+                            21-22-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020
+                            18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2019
+
+
+                            Example Query: "vocational training datasets"
+
+                            Response:
+                            - **18-20 years in receipt of an aftercare service in vocational training including Youthreach 2020**: [Link](https://data.gov.ie/dataset/18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020)
+                            - **21-22 years in receipt of an aftercare service in vocational training including Youthreach 2020**: [Link](https://data.gov.ie/dataset/21-22-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020)
+                            - **18-20 years in receipt of an aftercare service in vocational training including Youthreach 2019**: [Link](https://data.gov.ie/dataset/18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2019)
+                            """
+        
+        role = 'system'
+
+        messages = [{
+            'role': role, 
+            'content': mistral_query
+        }]
 
         chat_response = mistral_client.chat(
             model=mistral_model,
