@@ -43,16 +43,16 @@
   justify-content: flex-end;
 }
 
-.message.user div, .message.ai div {
+.message.user .message-content, .message.ai .message-content {
   padding: 10px 15px;
   border-radius: 20px;
-  max-width: 70%;
+  max-width: 100%; /* Changed from 70% to 100% */
 }
 
-.message.user div {
+.message.user .message-content {
   background-color: #e7f3ff;
 }
 
-.message.ai div {
+.message.ai .message-content {
   background-color: #ffe6e6;
 }
