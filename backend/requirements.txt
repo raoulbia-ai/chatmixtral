@@ -4,3 +4,7 @@ Flask-Caching
 mistralai
 python-dotenv
 chromadb
+pytest
+transformers
+torch
+sentence-transformers
