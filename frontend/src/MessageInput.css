@@ -1,29 +1,37 @@
+.message-input-container {
+  width: 90%;
+  max-width: 650px; /* Match the max-width of the chat window */
+  margin: 0 auto; /* Center the input container */
+  padding: 10px;
+  border-top: 1px solid #ddd;
+  background-color: #f9f9f9;
+  display: flex;
+  align-items: center;
+}
+
 .message-input {
   display: flex;
-  width: 90%;
-  max-width: 600px;
-  margin-bottom: 20px;
+  align-items: center;
+  flex: 1;
 }
 
 .message-input input {
-  flex: 1;
+  flex: 1; /* Ensure the input takes full available width */
   padding: 10px;
-  font-size: 1rem;
   border: 1px solid #ddd;
-  border-radius: 20px 0 0 20px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  border-radius: 5px;
+  margin-right: 10px;
+  width: 100%; /* Ensure the input takes full available width */
 }
 
 .message-input button {
-  padding: 10px 20px;
-  font-size: 1rem;
+  padding: 10px 15px;
   border: none;
+  border-radius: 5px;
   background-color: #007bff;
-  color: #fff;
-  border-radius: 0 20px 20px 0;
+  color: white;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-left: 5px;
 }
 
 .message-input button:hover {

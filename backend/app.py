@@ -117,90 +117,131 @@ def home():
 def hello():
     return jsonify({'message': 'Hello from Flask!'})
 
+# In-memory storage for conversation history
+conversation_history = []
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
+    global conversation_history
+    
     user_message = request.json.get('message')
     if not user_message:
         abort(400, description='Message is required')
 
     logging.info(f"Received message from frontend: {user_message}")
 
-    try:
-        chat_response = mistral_client.chat(
-            model=mistral_model,
-            messages=[ChatMessage(role="user", content=user_message)],
-        )
-        mixtral_response = chat_response.choices[0].message.content
+    # Prepare the Mistral query
+    check_query = f"""Does the user query {user_message} relate to a dataset, 
+                      or does it relate to a previously asked question in {conversation_history}?
+                      You may only respond with one of two words: "yes" or "no"
+                      Do not use punctuation in your response!
+                      
+                      Example:
+                      ========
+                      Question: What is the weather in Dublin
+                      Response: No
 
-        logging.info(f"Response from Mixtral: {mixtral_response}")
-    except Exception as e:
-        logging.error(f"Failed to get response from Mixtral API: {str(e)}")
-        raise MixtralAPIError(f"Failed to get response from Mixtral API: {str(e)}") from e
+                      Example
+                      ========
+                      Question: What datasets are available on data.gov.ie?
+                      Response: Yes
+                      
+                      Response:
+                    """
 
-    return jsonify({'response': mixtral_response})
+    messages = [
+        {'role': 'system', 'content': check_query}
+    ]
 
-@app.route('/api/search', methods=['POST'])
-def search():
-    user_query = request.json.get('query')
-    if not user_query:
-        abort(400, description='Query is required')
+    chat_response = mistral_client.chat(
+        model=mistral_model,
+        messages=messages
+    )
+    refined_response = chat_response.choices[0].message.content
+    logging.info(f"Refined response from Mistral: {refined_response}")
 
-    logging.info(f"Received search query: {user_query}")
+    if refined_response.lower() == "no":
+        # Prepare the Mistral query
+        general_query = f"""{user_message}"""
 
-    query_vector = embedding_function(user_query)[0]  # Ensure the embedding is correctly extracted
-
-    try:
-        # Using the correct method for querying the collection
-        search_results = dataset_collection.query(
-            query_embeddings=[query_vector],
-            n_results=10
-        )
-
-        search_results_text = "\n".join([metadata['name'] for metadata in search_results['metadatas'][0]])
-        logging.info(f"Search results text datatype: {type(search_results_text)}")
-
-        # Ensure the last message is from the user or a tool
-        user_query = f"{user_query}"
-        mistral_query = f"""Summarize the available datasets related to {user_request} 
-                            on the data.gov.ie website from the provided list. 
-                            If the list is empty or no relevant datasets are found, 
-                            indicate that no datasets were found.
-
-                            Example Datasets:
-                            
-                            18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020
-                            21-22-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020
-                            18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2019
-
-
-                            Example Query: "vocational training datasets"
-
-                            Response:
-                            - **18-20 years in receipt of an aftercare service in vocational training including Youthreach 2020**: [Link](https://data.gov.ie/dataset/18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020)
-                            - **21-22 years in receipt of an aftercare service in vocational training including Youthreach 2020**: [Link](https://data.gov.ie/dataset/21-22-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2020)
-                            - **18-20 years in receipt of an aftercare service in vocational training including Youthreach 2019**: [Link](https://data.gov.ie/dataset/18-20-years-in-receipt-of-an-aftercare-service-in-vocational-training-including-youthreach-2019)
-                            """
-        
-        role = 'system'
-
-        messages = [{
-            'role': role, 
-            'content': mistral_query
-        }]
+        messages = [
+            {'role': 'user', 'content': general_query}
+        ]
 
         chat_response = mistral_client.chat(
             model=mistral_model,
             messages=messages
         )
-        refined_response = chat_response.choices[0].message.content
+        general_response = chat_response.choices[0].message.content
+        logging.info(f"Refined response from Mistral: {general_response}")
 
-        logging.info(f"Refined response from Mistral: {refined_response}")
-    except Exception as e:
-        logging.error(f"Failed to get response from Mistral API: {str(e)}")
-        raise MixtralAPIError(f"Failed to get response from Mistral API: {str(e)}") from e
+        return jsonify({'response': general_response})
+    
+    else:
+        try:
+            # Check if the user message is a dataset query
+            query_vector = embedding_function(user_message)[0]  # Ensure the embedding is correctly extracted
 
-    return jsonify({'response': refined_response})
+            n_results = 10
+            search_results = dataset_collection.query(
+                query_embeddings=[query_vector],
+                n_results=n_results
+            )
 
+            search_results_text = "\n".join([metadata['name'] for metadata in search_results['metadatas'][0]])
+            logging.info(f"Search results text datatype: {type(search_results_text)}")
+
+            # Prepare the Mistral query
+            mistral_query = f"""Summarize the available datasets related to {user_message} 
+                                on the data.gov.ie website from the provided list of these {n_results} datasets: 
+                                {search_results_text}. 
+
+                                If the list is empty or no relevant datasets were found, 
+                                indicate that no datasets were found.
+
+                                Response format should be an intro text followed by a bullet list of available datasets names.
+                                Use friendly names in bold. Do not add any speculative comments such as "It may contain ...".
+                                Instead, provide the URL to the dataset by prepending it with https://data.gov.ie/dataset/.
+
+                                Example Output
+                                ==============
+                                Intro text: Here are some datasets related to your query:
+                                <friendly dataset name in bold here>
+                                URL: <a href="https://data.gov.ie/dataset/my-example-dataset-name" target="_blank">My Example Dataset Name</a>
+
+                                Response:
+                                """
+
+            messages = [
+                {'role': 'system', 'content': mistral_query},
+                {'role': 'user', 'content': user_message}
+            ]
+
+            chat_response = mistral_client.chat(
+                model=mistral_model,
+                messages=messages
+            )
+            refined_response = chat_response.choices[0].message.content
+
+            # Update conversation history
+            conversation_history.append({'role': 'user', 'content': user_message})
+            conversation_history.append({'role': 'system', 'content': mistral_query})
+            conversation_history.append({'role': 'assistant', 'content': refined_response})
+
+            logging.info(f"Refined response from Mistral: {refined_response}")
+
+        except Exception as e:
+            logging.error(f"Failed to get response from Mistral API: {str(e)}")
+            raise MixtralAPIError(f"Failed to get response from Mistral API: {str(e)}") from e
+
+        return jsonify({'response': refined_response})
+
+@app.route('/api/clear_history', methods=['POST'])
+def clear_history():
+    global conversation_history
+    conversation_history = []
+    logging.info("Conversation history cleared")
+    return jsonify({'message': 'Conversation history cleared'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

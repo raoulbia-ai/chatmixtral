@@ -6,21 +6,18 @@ import "./Spinner.css"; // Import the spinner CSS
 
 function App() {
   const [messages, setMessages] = useState([]);
-  const [isSearchMode, setIsSearchMode] = useState(false);
   const [loading, setLoading] = useState(false); // Add loading state
 
   const sendMessage = async (text) => {
     setLoading(true); // Set loading to true when starting to send a message
     console.log("Sending message:", text); // Debugging log
 
-    const endpoint = isSearchMode ? "api/search" : "api/chat";
-    const payload = isSearchMode ? { query: text } : { message: text };
-    const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/${endpoint}`, {
+    const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload), // Send as 'query' for search endpoint
+      body: JSON.stringify({ message: text }), // Send the message payload
     });
 
     const data = await response.json();
@@ -39,29 +36,25 @@ function App() {
     }
   };
 
+  const clearHistory = async () => {
+    const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/api/clear_history`, {
+      method: "POST",
+    });
+
+    const data = await response.json();
+    console.log(data.message); // Debugging log
+    setMessages([]); // Clear messages in the frontend
+  };
+
   return (
     <div className="App">
       <header className="App-header">
         <h1>ChatMixtral App</h1>
         <p>Welcome to the ChatMixtral App! Type your message below and chat with our AI.</p>
-        <div>
-          <button 
-            onClick={() => setIsSearchMode(false)} 
-            style={{ backgroundColor: !isSearchMode ? 'blue' : 'gray', color: 'white' }}
-          >
-            Chat Mode
-          </button>
-          <button 
-            onClick={() => setIsSearchMode(true)} 
-            style={{ backgroundColor: isSearchMode ? 'blue' : 'gray', color: 'white' }}
-          >
-            Search Mode
-          </button>
-        </div>
       </header>
       {loading && <div className="spinner"></div>} {/* Show spinner when loading */}
       <ChatWindow messages={messages} />
-      <MessageInput sendMessage={sendMessage} />
+      <MessageInput sendMessage={sendMessage} clearHistory={clearHistory} />
     </div>
   );
 }
