@@ -13,3 +13,4 @@ frontend/.env.production
 __pycache__/
 node_modules/
 cache/
+.aider*
