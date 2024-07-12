@@ -1,8 +1,7 @@
 ChatMixtral
 =====================
 
-Welcome to the ChatMixtral repository! This repo contains the codebase for the ChatMixtral application, an application designed to deliver a seamless chat experience with the Mixtral LLM. Leveraging the power of React, I've created a minimialistic UI that facilitates real-time messaging. The backend consists of a Python Flask application.
-
+Welcome to the ChatMixtral repository! This repo contains the codebase for the ChatMixtral application, an application designed to deliver a seamless chat experience with the Mixtral LLM, a language model developed by OpenAI. The application uses a React frontend to provide a real-time chat interface and a Flask backend to handle API requests and manage conversation history. The backend also integrates with the Mixtral API to generate AI responses and uses ChromaDB for dataset search functionality.
 
 Getting Started
 ---------------
@@ -11,17 +10,22 @@ Getting Started
 Before diving in, make sure you have the following installed:
 - Node.js (version 14 or later)
 - npm (version 6 or later)
+- Python 3.6 or later
+- pip
 
 **Installation:**
 1. Clone the repository to your local machine.
 2. Navigate to the project directory.
-3. Install the necessary dependencies by running `npm install`.
-4. If encountering errors when trying to start frontend, use `npm install react-scripts@latest`.
+3. Install the frontend dependencies by running `npm install`.
+4. Navigate to the backend directory and install the backend dependencies by running `pip install -r requirements.txt`.
+5. If encountering errors when trying to start frontend, use `npm install react-scripts@latest`.
 
 Running the Application
 -----------------------
 
-To start the development server, execute `npm start`. This compiles the application and launches it in your default web browser at `http://localhost:3000`.
+To start the development server, execute `npm start` in the frontend directory. This compiles the application and launches it in your default web browser at `http://localhost:3000`.
+
+To start the backend server, navigate to the backend directory and run `python app.py`.
 
 Building for Production
 -----------------------
