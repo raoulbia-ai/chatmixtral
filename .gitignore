@@ -4,6 +4,7 @@
 backend/__pycache__
 backend/.azure/
 backend/.env
+backend/cache/dataset_embeddings.pkl
 
 frontend/node_modules
 frontend/build/
