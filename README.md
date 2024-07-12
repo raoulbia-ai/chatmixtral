@@ -16,6 +16,7 @@ Before diving in, make sure you have the following installed:
 1. Clone the repository to your local machine.
 2. Navigate to the project directory.
 3. Install the necessary dependencies by running `npm install`.
+4. If encountering errors when trying to start frontend, use `npm install react-scripts@latest`.
 
 Running the Application
 -----------------------
