@@ -1,7 +1,7 @@
-ChatMixtral
+DataGovIE Dataset Search Chatbot
 =====================
 
-Welcome to the ChatMixtral repository! This repo contains the codebase for the ChatMixtral application, an application designed to deliver a seamless chat experience with the Mixtral LLM, a language model developed by OpenAI. The application uses a React frontend to provide a real-time chat interface and a Flask backend to handle API requests and manage conversation history. The backend also integrates with the Mixtral API to generate AI responses and uses ChromaDB for dataset search functionality.
+Welcome to the DataGovIE Dataset Search Chatbot repository! This application is a proof of concept designed to provide a seamless chat experience for searching datasets available on data.gov.ie. It uses the Mixtral LLM, a language model developed by OpenAI, to generate AI responses and ChromaDB for dataset search functionality. The application uses a React frontend to provide a real-time chat interface and a Flask backend to handle API requests and manage conversation history. The current version of the application retrieves the 10 closest matches to a user's search query and provides URLs to the relevant dataset pages. Future work includes integration with a sandbox environment so that the LLM can download the data and then answer questions about it, including creating visualisations. One of the main areas to be finalised is the chat memory, allowing the user to ask follow-up questions with references to previous conversation turns.
 
 Getting Started
 ---------------
