@@ -1,78 +1,53 @@
-# Testing Mixtral Chat Completion
+# ChatMixtral
 
-`curl -X POST -H "Content-Type: application/json" -d '{"message":"Hello, how are you?"}' https://abcdd4f5-b96b-4d98-a235-ca0d0eba9939-00-111sej3oqnpqz.janeway.replit.dev:5000/chat`
+Welcome to the ChatMixtral repository! This project is an innovative chat application designed to deliver a seamless chat experience powered by the Mixtral LLM. Utilizing React for the frontend and Python Flask for the backend, ChatMixtral offers a minimalistic yet powerful UI for real-time messaging.
 
-### Local Testing 
+## Getting Started
 
-`npm run start`
-`localStorage.clear(); sessionStorage.clear() ; location.reload();`
+### Prerequisites
 
+Before you begin, ensure you have the following installed on your system:
+- Node.js (version 14 or later)
+- npm (version 6 or later)
+- Python (version 3.7 or later)
 
-# Getting Started with Create React App
+### Installation
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Follow these steps to get your development environment set up:
 
-## Available Scripts
+1. Clone the repository to your local machine.
+2. Navigate to the project directory.
+3. Install the necessary dependencies for the frontend:
+   ```sh
+   cd frontend
+   npm install
+   ```
+   If you encounter any errors, try updating [`react-scripts`](command:_github.copilot.openSymbolFromReferences?%5B%7B%22%24mid%22%3A1%2C%22path%22%3A%22%2Fhome%2Fraoulbia%2Frepos%2Fwp-chatmixtral%2Ffrontend%2Fnode_modules%2F%40types%2Freact%2Findex.d.ts%22%2C%22scheme%22%3A%22file%22%7D%2C%7B%22line%22%3A6%2C%22character%22%3A0%7D%5D "frontend/node_modules/@types/react/index.d.ts"):
+   ```sh
+   npm install react-scripts@latest
+   ```
+4. Install the necessary dependencies for the backend:
+   ```sh
+   cd ../backend
+   pip install -r requirements.txt
+   ```
 
-In the project directory, you can run:
+## Running the Application
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+To run the application locally:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+1. Start the backend server:
+   ```sh
+   cd backend
+   python app.py
+   ```
+2. In a new terminal, start the frontend development server:
+   ```sh
+   cd frontend
+   npm start
+   ```
+   This will compile the application and launch it in your default web browser at `http://localhost:3000`.
 
-### `npm test`
+## Building for Production
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+To create a production build of the frontend:
