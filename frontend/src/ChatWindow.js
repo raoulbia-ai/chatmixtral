@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import './ChatWindow.css';
 
 const ChatWindow = ({ messages }) => (
@@ -9,7 +10,7 @@ const ChatWindow = ({ messages }) => (
         <div key={index} className={`message ${msg.user ? 'user' : 'ai'}`}>
           <span>{msg.user ? 'User' : 'AI'}:</span>
           <div className="message-content">
-            <ReactMarkdown>{msg.text}</ReactMarkdown>
+            <ReactMarkdown rehypePlugins={[rehypeRaw]}>{msg.text}</ReactMarkdown>
           </div>
         </div>
       ))}

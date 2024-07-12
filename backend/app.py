@@ -213,9 +213,8 @@ def chat():
 
                                 Example Output
                                 ==============
-                                Intro text: Here are some datasets related to your query:
-                                <friendly dataset name in bold here>
-                                URL: <a href="https://data.gov.ie/dataset/my-example-dataset-name" target="_blank">My Example Dataset Name</a>
+                                Intro text: Here are some datasets related to your query:<br>
+                                <a href="https://data.gov.ie/dataset/my-example-dataset-name" target="_blank">My Example Dataset Name</a>
 
                                 Response:
                                 """
