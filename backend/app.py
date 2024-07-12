@@ -10,6 +10,7 @@ import chromadb
 from chromadb.utils.embedding_functions import EmbeddingFunction
 from sentence_transformers import SentenceTransformer
 import requests
+import sqlite3
 import pickle
 
 # Configure logging
@@ -117,26 +118,66 @@ def home():
 def hello():
     return jsonify({'message': 'Hello from Flask!'})
 
-# In-memory storage for conversation history
-conversation_history = []
+# Database setup for storing conversation history
+CHAT_HISTORY_DIR = os.getenv('CHAT_HISTORY_DIR', os.path.join(os.path.dirname(__file__), 'chat_history'))
+CHAT_HISTORY_DB = os.path.join(CHAT_HISTORY_DIR, 'chat_history.db')
+
+if not os.path.exists(CHAT_HISTORY_DIR):
+    os.makedirs(CHAT_HISTORY_DIR)
+
+def init_db():
+    conn = sqlite3.connect(CHAT_HISTORY_DB)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS conversation_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            role TEXT,
+            content TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def get_conversation_history(session_id):
+    conn = sqlite3.connect(CHAT_HISTORY_DB)
+    c = conn.cursor()
+    c.execute('SELECT role, content FROM conversation_history WHERE session_id = ?', (session_id,))
+    history = c.fetchall()
+    conn.close()
+    return [{'role': row[0], 'content': row[1]} for row in history]
+
+def add_to_conversation_history(session_id, role, content):
+    conn = sqlite3.connect(CHAT_HISTORY_DB)
+    c = conn.cursor()
+    c.execute('INSERT INTO conversation_history (session_id, role, content) VALUES (?, ?, ?)', (session_id, role, content))
+    conn.commit()
+    conn.close()
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    global conversation_history
-    
-    user_message = request.json.get('message')
-    if not user_message:
-        abort(400, description='Message is required')
+    data = request.json
+    session_id = data.get('session_id')
+    user_message = data.get('message')
+
+    if not session_id or not user_message:
+        return jsonify({'error': 'session_id and message are required'}), 400
 
     logging.info(f"Received message from frontend: {user_message}")
 
+    # Get conversation history
+    conversation_history = get_conversation_history(session_id)
+
     # Update conversation history
     conversation_history.append({'role': 'user', 'content': user_message})
+    add_to_conversation_history(session_id, 'user', user_message)
 
     # Prepare the Mistral query
-    check_query = f"""Does the user query {user_message} relate to a dataset, 
-                      or does it relate to a previously asked question in {conversation_history}?
-                      You may only respond with one of two words: "yes" or "no"
+    check_query = f"""Does the user query '{user_message}' relate to a dataset, 
+                      or does it relate to a previously asked question in the conversation history: {conversation_history}?
+                      You may only respond with one of two words: "yes" or "no".
                       Do not use punctuation in your response!
                       
                       Example:
@@ -163,7 +204,6 @@ def chat():
     refined_response = chat_response.choices[0].message.content
     logging.info(f"Refined response from Mistral: {refined_response}")
 
-
     if refined_response.lower() == "no":
         # Prepare the Mistral query
         general_query = f"""{user_message}"""
@@ -177,12 +217,11 @@ def chat():
             messages=messages
         )
         general_response = chat_response.choices[0].message.content
-        logging.info(f"Refined response from Mistral: {general_response}")
+        logging.info(f"General response from Mistral: {general_response}")
 
         # Update conversation history
-        conversation_history.append({'role': 'user', 'content': general_response})
+        add_to_conversation_history(session_id, 'assistant', general_response)
 
-    
         return jsonify({'response': general_response})
     
     else:
@@ -200,7 +239,7 @@ def chat():
             logging.info(f"Search results text datatype: {type(search_results_text)}")
 
             # Prepare the Mistral query
-            mistral_query = f"""Summarize the available datasets related to {user_message} 
+            mistral_query = f"""List the available datasets related to '{user_message}' 
                                 on the data.gov.ie website from the provided list of these {n_results} datasets: 
                                 {search_results_text}. 
 
@@ -230,7 +269,7 @@ def chat():
             refined_response = chat_response.choices[0].message.content
 
             # Update conversation history
-            conversation_history.append({'role': 'system', 'content': refined_response})
+            add_to_conversation_history(session_id, 'assistant', refined_response)
 
             logging.info(f"Refined response from Mistral: {refined_response}")
 
@@ -244,9 +283,19 @@ def chat():
 
 @app.route('/api/clear_history', methods=['POST'])
 def clear_history():
-    global conversation_history
-    conversation_history = []
-    logging.info("Conversation history cleared")
+    data = request.json
+    session_id = data.get('session_id')
+
+    if not session_id:
+        return jsonify({'error': 'session_id is required'}), 400
+
+    conn = sqlite3.connect(CHAT_HISTORY_DB)
+    c = conn.cursor()
+    c.execute('DELETE FROM conversation_history WHERE session_id = ?', (session_id,))
+    conn.commit()
+    conn.close()
+
+    logging.info(f"Conversation history cleared for session: {session_id}")
     return jsonify({'message': 'Conversation history cleared'}), 200
 
 if __name__ == '__main__':
