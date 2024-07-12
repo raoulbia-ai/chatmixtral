@@ -130,6 +130,9 @@ def chat():
 
     logging.info(f"Received message from frontend: {user_message}")
 
+    # Update conversation history
+    conversation_history.append({'role': 'user', 'content': user_message})
+
     # Prepare the Mistral query
     check_query = f"""Does the user query {user_message} relate to a dataset, 
                       or does it relate to a previously asked question in {conversation_history}?
@@ -160,6 +163,7 @@ def chat():
     refined_response = chat_response.choices[0].message.content
     logging.info(f"Refined response from Mistral: {refined_response}")
 
+
     if refined_response.lower() == "no":
         # Prepare the Mistral query
         general_query = f"""{user_message}"""
@@ -175,6 +179,10 @@ def chat():
         general_response = chat_response.choices[0].message.content
         logging.info(f"Refined response from Mistral: {general_response}")
 
+        # Update conversation history
+        conversation_history.append({'role': 'user', 'content': general_response})
+
+    
         return jsonify({'response': general_response})
     
     else:
@@ -213,8 +221,7 @@ def chat():
                                 """
 
             messages = [
-                {'role': 'system', 'content': mistral_query},
-                {'role': 'user', 'content': user_message}
+                {'role': 'system', 'content': mistral_query}
             ]
 
             chat_response = mistral_client.chat(
@@ -224,12 +231,12 @@ def chat():
             refined_response = chat_response.choices[0].message.content
 
             # Update conversation history
-            conversation_history.append({'role': 'user', 'content': user_message})
-            conversation_history.append({'role': 'system', 'content': mistral_query})
-            conversation_history.append({'role': 'assistant', 'content': refined_response})
+            conversation_history.append({'role': 'system', 'content': refined_response})
 
             logging.info(f"Refined response from Mistral: {refined_response}")
 
+            logging.info(f"Conversation history: {conversation_history}")
+            
         except Exception as e:
             logging.error(f"Failed to get response from Mistral API: {str(e)}")
             raise MixtralAPIError(f"Failed to get response from Mistral API: {str(e)}") from e
