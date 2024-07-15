@@ -1,4 +1,5 @@
 import os
+import json
 from flask import Flask, request, jsonify, abort
 from flask_cors import CORS
 from flask_caching import Cache
@@ -12,12 +13,15 @@ from sentence_transformers import SentenceTransformer
 import requests
 import sqlite3
 import pickle
+from prompts.roles import system, user
+from chat_history.conversation import ConversationHistory
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Load environment variables from .env file
 load_dotenv()
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://jolly-sky-0071d7d03.5.azurestaticapps.net",
@@ -52,6 +56,9 @@ class CustomEmbeddingFunction(EmbeddingFunction):
         if not isinstance(texts, list):
             texts = [texts]
         return self.model.encode(texts, batch_size=self.batch_size, show_progress_bar=True).tolist()
+
+# Initialize a ConversationHistory object
+conv_history = ConversationHistory()
 
 # Initialize ChromaDB client and collection
 client = chromadb.Client()
@@ -118,43 +125,7 @@ def home():
 def hello():
     return jsonify({'message': 'Hello from Flask!'})
 
-# Database setup for storing conversation history
-CHAT_HISTORY_DIR = os.getenv('CHAT_HISTORY_DIR', os.path.join(os.path.dirname(__file__), 'chat_history'))
-CHAT_HISTORY_DB = os.path.join(CHAT_HISTORY_DIR, 'chat_history.db')
 
-if not os.path.exists(CHAT_HISTORY_DIR):
-    os.makedirs(CHAT_HISTORY_DIR)
-
-def init_db():
-    conn = sqlite3.connect(CHAT_HISTORY_DB)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS conversation_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            role TEXT,
-            content TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def get_conversation_history(session_id):
-    conn = sqlite3.connect(CHAT_HISTORY_DB)
-    c = conn.cursor()
-    c.execute('SELECT role, content FROM conversation_history WHERE session_id = ?', (session_id,))
-    history = c.fetchall()
-    conn.close()
-    return [{'role': row[0], 'content': row[1]} for row in history]
-
-def add_to_conversation_history(session_id, role, content):
-    conn = sqlite3.connect(CHAT_HISTORY_DB)
-    c = conn.cursor()
-    c.execute('INSERT INTO conversation_history (session_id, role, content) VALUES (?, ?, ?)', (session_id, role, content))
-    conn.commit()
-    conn.close()
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -168,33 +139,34 @@ def chat():
     logging.info(f"Received message from frontend: {user_message}")
 
     # Get conversation history
-    conversation_history = get_conversation_history(session_id)
+    # conversation_history = conv_history.get_conversation_history(session_id)
+    # logging.info(f"Conversation history: {conversation_history}")
 
     # Update conversation history
-    conversation_history.append({'role': 'user', 'content': user_message})
-    add_to_conversation_history(session_id, 'user', user_message)
+    # conversation_history.append({'role': 'user', 'content': user_message})
+    conv_history.add_to_conversation_history(session_id, 'user', user_message)
+    logging.info(f"Conversation history: {conv_history.get_conversation_history(session_id)}")
 
     # Prepare the Mistral query
-    check_query = f"""Does the user query '{user_message}' relate to a dataset, 
-                      or does it relate to a previously asked question in the conversation history: {conversation_history}?
-                      You may only respond with one of two words: "yes" or "no".
-                      Do not use punctuation in your response!
+    check_query = f"""Does the user query {user_message} relate to a dataset or datasets?
+                      Or, does the user query {user_message} relate to utterances found in {conv_history.get_conversation_history(session_id)}? 
                       
-                      Example:
-                      ========
-                      Question: What is the weather in Dublin
-                      Response: No
+                      Response format is JSON with the following structure:
+                      - Yes: If the user query relates to a dataset
+                      - No: If the user query does not relate to a dataset
+                      - Example of the response format
+    
+                        Question: What is the weather in Dublin
+                        Response: {{ "response": "No" }}            
 
-                      Example
-                      ========
-                      Question: What datasets are available on data.gov.ie?
-                      Response: Yes
+                        Question: What datasets are available on data.gov.ie?
+                        Response: {{ "response": "Yes" }}
                       
                       Response:
                     """
 
     messages = [
-        {'role': 'system', 'content': check_query}
+        {'role': 'user', 'content': check_query}
     ]
 
     chat_response = mistral_client.chat(
@@ -204,7 +176,17 @@ def chat():
     refined_response = chat_response.choices[0].message.content
     logging.info(f"Refined response from Mistral: {refined_response}")
 
-    if refined_response.lower() == "no":
+    
+    # Assuming refined_response is a JSON string
+    try:
+        refined_response_dict = json.loads(refined_response)
+        logging.info(f"Refined response dict: {refined_response_dict}")
+    except json.JSONDecodeError:
+        # Handle the case where refined_response is not valid JSON
+        logging.error("refined_response is not valid JSON.")
+        # Handle the error appropriately, maybe set refined_response_dict to None or handle it another way
+    
+    if refined_response_dict['response'] == "No":
         # Prepare the Mistral query
         general_query = f"""{user_message}"""
 
@@ -220,7 +202,7 @@ def chat():
         logging.info(f"General response from Mistral: {general_response}")
 
         # Update conversation history
-        add_to_conversation_history(session_id, 'assistant', general_response)
+        conv_history.add_to_conversation_history(session_id, 'assistant', general_response)
 
         return jsonify({'response': general_response})
     
@@ -238,28 +220,16 @@ def chat():
             search_results_text = "\n".join([metadata['name'] for metadata in search_results['metadatas'][0]])
             logging.info(f"Search results text datatype: {type(search_results_text)}")
 
-            # Prepare the Mistral query
-            mistral_query = f"""List the available datasets related to '{user_message}' 
-                                on the data.gov.ie website from the provided list of these {n_results} datasets: 
-                                {search_results_text}. 
 
-                                If the list is empty or no relevant datasets were found, 
-                                indicate that no datasets were found.
-
-                                Response format should be an intro text followed by a bullet list of available datasets names.
-                                Use friendly names in bold. Do not add any speculative comments such as "It may contain ...".
-                                Instead, provide the URL to the dataset by prepending it with https://data.gov.ie/dataset/.
-
-                                Example Output
-                                ==============
-                                Intro text: Here are some datasets related to your query:<br>
-                                <a href="https://data.gov.ie/dataset/my-example-dataset-name" target="_blank">My Example Dataset Name</a>
-
-                                Response:
-                                """
+            user_prompt = user.format(user_message=user_message,
+                                      conv_history=conv_history.get_conversation_history(session_id), 
+                                      n_results=n_results, 
+                                      search_results_text=search_results_text)
+            logging.info(f"User prompt: {user_prompt}")
 
             messages = [
-                {'role': 'system', 'content': mistral_query}
+                {'role': 'system', 'content': system},
+                {'role': 'user', 'content': user_prompt}
             ]
 
             chat_response = mistral_client.chat(
@@ -269,11 +239,12 @@ def chat():
             refined_response = chat_response.choices[0].message.content
 
             # Update conversation history
-            add_to_conversation_history(session_id, 'assistant', refined_response)
+            conv_history.add_to_conversation_history(session_id, 'assistant', refined_response)
+            logging.info(f"Conversation history: {conv_history}")
 
             logging.info(f"Refined response from Mistral: {refined_response}")
 
-            logging.info(f"Conversation history: {conversation_history}")
+            
             
         except Exception as e:
             logging.error(f"Failed to get response from Mistral API: {str(e)}")
@@ -289,11 +260,7 @@ def clear_history():
     if not session_id:
         return jsonify({'error': 'session_id is required'}), 400
 
-    conn = sqlite3.connect(CHAT_HISTORY_DB)
-    c = conn.cursor()
-    c.execute('DELETE FROM conversation_history WHERE session_id = ?', (session_id,))
-    conn.commit()
-    conn.close()
+    conv_history.delete_conversation_history(session_id)
 
     logging.info(f"Conversation history cleared for session: {session_id}")
     return jsonify({'message': 'Conversation history cleared'}), 200
