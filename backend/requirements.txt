@@ -8,3 +8,5 @@ pytest
 transformers
 torch
 sentence-transformers
+langchain-core
+langchain

@@ -14,14 +14,13 @@ import requests
 import sqlite3
 import pickle
 from prompts.roles import system, user
-from chat_history.conversation import ConversationHistory
+from langchain.memory import ConversationBufferMemory  # Import LangChain memory
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Load environment variables from .env file
 load_dotenv()
-
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://jolly-sky-0071d7d03.5.azurestaticapps.net",
@@ -57,8 +56,8 @@ class CustomEmbeddingFunction(EmbeddingFunction):
             texts = [texts]
         return self.model.encode(texts, batch_size=self.batch_size, show_progress_bar=True).tolist()
 
-# Initialize a ConversationHistory object
-conv_history = ConversationHistory()
+# Initialize ConversationBufferMemory
+memory = ConversationBufferMemory()
 
 # Initialize ChromaDB client and collection
 client = chromadb.Client()
@@ -121,136 +120,63 @@ initialize_chromadb()
 def home():
     return "Welcome to the Mixtral Chatbot!"
 
-@app.route('/api/hello')
-def hello():
-    return jsonify({'message': 'Hello from Flask!'})
-
-
-
 @app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.json
-    session_id = data.get('session_id')
     user_message = data.get('message')
+    logging.info(f"User message: {user_message}")
+    session_id = data.get('session_id')
+    logging.info(f"Session ID: {session_id}")
+        
+    if not user_message or not session_id:
+        return jsonify({'error': 'Message and session_id are required'}), 400
 
-    if not session_id or not user_message:
-        return jsonify({'error': 'session_id and message are required'}), 400
-
-    logging.info(f"Received message from frontend: {user_message}")
-
-    # Get conversation history
-    # conversation_history = conv_history.get_conversation_history(session_id)
-    # logging.info(f"Conversation history: {conversation_history}")
-
-    # Update conversation history
-    # conversation_history.append({'role': 'user', 'content': user_message})
-    conv_history.add_to_conversation_history(session_id, 'user', user_message)
-    logging.info(f"Conversation history: {conv_history.get_conversation_history(session_id)}")
-
-    # Prepare the Mistral query
-    check_query = f"""Does the user query {user_message} relate to a dataset or datasets?
-                      Or, does the user query {user_message} relate to utterances found in {conv_history.get_conversation_history(session_id)}? 
-                      
-                      Response format is JSON with the following structure:
-                      - Yes: If the user query relates to a dataset
-                      - No: If the user query does not relate to a dataset
-                      - Example of the response format
-    
-                        Question: What is the weather in Dublin
-                        Response: {{ "response": "No" }}            
-
-                        Question: What datasets are available on data.gov.ie?
-                        Response: {{ "response": "Yes" }}
-                      
-                      Response:
-                    """
-
-    messages = [
-        {'role': 'user', 'content': check_query}
-    ]
-
-    chat_response = mistral_client.chat(
-        model=mistral_model,
-        messages=messages
-    )
-    refined_response = chat_response.choices[0].message.content
-    logging.info(f"Refined response from Mistral: {refined_response}")
-
-    
-    # Assuming refined_response is a JSON string
     try:
-        refined_response_dict = json.loads(refined_response)
-        logging.info(f"Refined response dict: {refined_response_dict}")
-    except json.JSONDecodeError:
-        # Handle the case where refined_response is not valid JSON
-        logging.error("refined_response is not valid JSON.")
-        # Handle the error appropriately, maybe set refined_response_dict to None or handle it another way
+        # Add user message to memory
+        memory.chat_memory.add_user_message(user_message)
+        logging.info(f"Added user message to memory: {memory.load_memory_variables({})}")           
+
+        query_vector = embedding_function(user_message)[0]  # Ensure the embedding is correctly extracted
+
+        n_results = 10
+        
+        search_results = dataset_collection.query(
+            query_embeddings=[query_vector],
+            n_results=n_results
+        )
+
+        search_results_text = "\n".join([metadata['name'] for metadata in search_results['metadatas'][0]])
+        logging.info(f"Search results text datatype: {type(search_results_text)}")
     
-    if refined_response_dict['response'] == "No":
-        # Prepare the Mistral query
-        general_query = f"""{user_message}"""
+        # Create the user prompt
+        user_prompt = user.format(user_message = user_message,
+                                  conv_history = memory.load_memory_variables({})['history'],
+                                  n_results = n_results,
+                                  search_results_text = search_results_text)
+        
+        logging.info(f"User prompt: {user_prompt}")
 
         messages = [
-            {'role': 'user', 'content': general_query}
+            {'role': 'system', 'content': system},
+            {'role': 'user', 'content': user_prompt}
         ]
 
         chat_response = mistral_client.chat(
             model=mistral_model,
             messages=messages
         )
-        general_response = chat_response.choices[0].message.content
-        logging.info(f"General response from Mistral: {general_response}")
+        refined_response = chat_response.choices[0].message.content
 
-        # Update conversation history
-        conv_history.add_to_conversation_history(session_id, 'assistant', general_response)
+        # Add AI response to memory
+        memory.chat_memory.add_ai_message(refined_response)
 
-        return jsonify({'response': general_response})
-    
-    else:
-        try:
-            # Check if the user message is a dataset query
-            query_vector = embedding_function(user_message)[0]  # Ensure the embedding is correctly extracted
+        logging.info(f"Conversation history: {memory.load_memory_variables({})}")
 
-            n_results = 10
-            search_results = dataset_collection.query(
-                query_embeddings=[query_vector],
-                n_results=n_results
-            )
+    except Exception as e:
+        logging.error(f"Failed to get response from Mistral API: {str(e)}")
+        raise MixtralAPIError(f"Failed to get response from Mistral API: {str(e)}") from e
 
-            search_results_text = "\n".join([metadata['name'] for metadata in search_results['metadatas'][0]])
-            logging.info(f"Search results text datatype: {type(search_results_text)}")
-
-
-            user_prompt = user.format(user_message=user_message,
-                                      conv_history=conv_history.get_conversation_history(session_id), 
-                                      n_results=n_results, 
-                                      search_results_text=search_results_text)
-            logging.info(f"User prompt: {user_prompt}")
-
-            messages = [
-                {'role': 'system', 'content': system},
-                {'role': 'user', 'content': user_prompt}
-            ]
-
-            chat_response = mistral_client.chat(
-                model=mistral_model,
-                messages=messages
-            )
-            refined_response = chat_response.choices[0].message.content
-
-            # Update conversation history
-            conv_history.add_to_conversation_history(session_id, 'assistant', refined_response)
-            logging.info(f"Conversation history: {conv_history}")
-
-            logging.info(f"Refined response from Mistral: {refined_response}")
-
-            
-            
-        except Exception as e:
-            logging.error(f"Failed to get response from Mistral API: {str(e)}")
-            raise MixtralAPIError(f"Failed to get response from Mistral API: {str(e)}") from e
-
-        return jsonify({'response': refined_response})
+    return jsonify({'response': refined_response})
 
 @app.route('/api/clear_history', methods=['POST'])
 def clear_history():
@@ -260,7 +186,8 @@ def clear_history():
     if not session_id:
         return jsonify({'error': 'session_id is required'}), 400
 
-    conv_history.delete_conversation_history(session_id)
+    # Clear the conversation history for the session
+    memory.chat_memory.clear()
 
     logging.info(f"Conversation history cleared for session: {session_id}")
     return jsonify({'message': 'Conversation history cleared'}), 200
