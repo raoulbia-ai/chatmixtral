@@ -75,8 +75,8 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>ChatMixtral App</h1>
-        <p>Welcome to the ChatMixtral App! Type your message below and chat with our AI.</p>
+        <h1>Data.Gov.ie Search Datasets App</h1>
+        <p>Welcome to the Data.Gov.ie Search Datasets App! Type your message below and chat with our AI.</p>
       </header>
       {loading && <div className="spinner"></div>} {/* Show spinner when loading */}
       <ChatWindow messages={messages} />

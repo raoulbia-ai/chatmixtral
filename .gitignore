@@ -15,3 +15,6 @@ __pycache__/
 node_modules/
 cache/
 .aider*
+
+#Misc.
+backend/chat_history/chat_history/chat_history.db
