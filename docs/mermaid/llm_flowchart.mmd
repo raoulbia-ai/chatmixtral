@@ -1,0 +1,10 @@
+graph TD                                                                                                                                      
+     A[User Message] -->|Generate Embedding| C[ChromaDB]                                                                                      
+     C -->|Return Search Results| D[Backend]                                                                                                   
+     D -->|Prompt| F[Mistral API]                                                                                                                                                                                                              
+     F -->|Generate Response| D                                                                                                                
+     D -->|Return Response| A                                                                                                                  
+     G[Backend] -->|Fetch Data| H[data.gov API]                                                                                                
+     H -->|Return Dataset Names| I[paraphrase-MiniLM-L6-v2]                                                                                                    
+     I -->|Generate Embeddings| C                                                                                                                                                                                                                                
+     D -->|Look Up Matches| C
